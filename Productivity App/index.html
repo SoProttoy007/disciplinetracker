@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discipline Tracker</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-firestore-compat.js"></script>
+    <script>
+        // =============================================
+        // PASTE YOUR FIREBASE CONFIG HERE
+        // =============================================
+        var firebaseConfig = {
+            apiKey: "AIzaSyCodq3A2VkJTaFSFs2rqXgLb8ffe2fNKKI",
+            authDomain: "discipline-tracker-8f2f4.firebaseapp.com",
+            projectId: "discipline-tracker-8f2f4",
+            storageBucket: "discipline-tracker-8f2f4.firebasestorage.app",
+            messagingSenderId: "36076759932",
+            appId: "1:36076759932:web:ac767549dc0e68b05052f9"
+        };
+        firebase.initializeApp(firebaseConfig);
+        var db = firebase.firestore();
+        var auth = firebase.auth();
+    </script>
+</head>
+<body>
+
+<!-- ===== AUTH SCREEN ===== -->
+<div id="authScreen" class="screen active" style="display:flex;">
+    <div class="auth-bg">
+        <div class="auth-orb orb1"></div>
+        <div class="auth-orb orb2"></div>
+        <div class="auth-orb orb3"></div>
+    </div>
+    <div class="auth-card">
+        <div class="auth-logo">⚡</div>
+        <h1 class="auth-title">Discipline<span>Tracker</span></h1>
+        <p class="auth-sub">Build habits. Earn badges. Dominate.</p>
+
+        <button onclick="loginGoogle()" class="btn-auth btn-google">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="18" alt="G">
+            Continue with Google
+        </button>
+
+        <div class="auth-divider"><span>or</span></div>
+
+        <input type="email" id="authEmail" placeholder="Email address" class="auth-input">
+        <input type="password" id="authPassword" placeholder="Password (min 6 chars)" class="auth-input">
+        <div class="auth-row">
+            <button onclick="loginEmail()" class="btn-auth btn-email">Sign In</button>
+            <button onclick="registerEmail()" class="btn-auth btn-register">Create Account</button>
+        </div>
+
+        <div class="auth-divider"><span>or</span></div>
+        <button onclick="loginGuest()" class="btn-auth btn-guest">Continue as Guest</button>
+
+        <p id="authError" class="auth-error"></p>
+    </div>
+</div>
+
+<!-- ===== USERNAME SETUP SCREEN ===== -->
+<div id="usernameScreen" class="screen" style="display:none;">
+    <div class="auth-bg">
+        <div class="auth-orb orb1"></div>
+        <div class="auth-orb orb2"></div>
+    </div>
+    <div class="auth-card">
+        <div class="auth-logo">🎯</div>
+        <h2 style="color:#fff; margin-bottom:8px;">Choose your username</h2>
+        <p class="auth-sub">This is how others will see you on the leaderboard.</p>
+        <input type="text" id="usernameInput" placeholder="e.g. StudyBeast99" class="auth-input" maxlength="20">
+        <button onclick="saveUsername()" class="btn-auth btn-google" style="margin-top:10px;">Let's Go ⚡</button>
+        <p id="usernameError" class="auth-error"></p>
+    </div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div id="appScreen" class="screen" style="display:none;">
+
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+        <div class="sidebar-logo">
+            <img src="logo.svg" alt="DT" style="width:32px;height:32px;filter:drop-shadow(0 0 8px rgba(99,102,241,0.5));">
+            <span style="font-weight:900;letter-spacing:0.05em;">DT</span>
+        </div
+        <div class="nav-links">
+            <a href="#" class="nav-link active" onclick="showTab('dashboard')">
+                <span class="nav-icon">📊</span><span class="nav-text">Dashboard</span>
+            </a>
+            <a href="#" class="nav-link" onclick="showTab('leaderboard')">
+                <span class="nav-icon">🏆</span><span class="nav-text">Leaderboard</span>
+            </a>
+            <a href="#" class="nav-link" onclick="showTab('friends')">
+                <span class="nav-icon">👥</span><span class="nav-text">Friends</span>
+            </a>
+            <a href="#" class="nav-link" onclick="showTab('profile')">
+                <span class="nav-icon">🎖️</span><span class="nav-text">My Profile</span>
+            </a>
+        </div>
+        <div class="sidebar-user">
+            <div class="user-avatar" id="sidebarAvatar">?</div>
+            <div class="user-info">
+                <div class="user-name" id="sidebarName">Loading...</div>
+                <button onclick="auth.signOut()" class="logout-btn">Sign out</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <!-- DASHBOARD TAB -->
+        <div id="tab-dashboard" class="tab-content active">
+            <div class="page-header">
+                <div>
+                    <h2 class="page-title">Dashboard</h2>
+                    <p id="dailyQuote" class="page-sub">"Loading your motivation..."</p>
+                </div>
+                <div class="streak-pill">
+                    🔥 <span id="streakCount">0</span> day streak
+                </div>
+            </div>
+
+            <!-- SCORE CARDS -->
+            <div class="cards-row">
+                <div class="score-card c-green" id="dailyScoreCard">
+                    <div class="score-label">Today's Points</div>
+                    <div class="score-num" id="dailyScore">0 pts</div>
+                    <div class="score-bar">
+                        <div class="score-fill" id="dailyFill"></div>
+                        <div class="score-overflow" id="dailyOverflow" style="display:none;"></div>
+                    </div>
+                    <div class="score-sub" style="display:flex;justify-content:space-between;">
+                        <span>📖 10pts · ✅ 5pts</span>
+                        <span id="dailyTarget" style="font-weight:700;">Target: -- pts</span>
+                    </div>
+                </div>
+                <div class="score-card c-blue">
+                    <div class="score-label">Total Points</div>
+                    <div class="score-num" id="weeklyScore">0 pts</div>
+                    <div class="score-bar"><div class="score-fill" id="weeklyFill"></div></div>
+                </div>
+                <div class="score-card c-purple">
+                    <div class="score-label">Distraction Penalty</div>
+                    <div class="score-num" id="overallScore">0 pts</div>
+                    <div class="score-bar"><div class="score-fill" id="overallFill"></div></div>
+                </div>
+                <div class="score-card c-orange">
+                    <div class="score-label">Focus Today</div>
+                    <div class="score-num" id="focusToday">0m</div>
+                    <div class="score-sub">Total: <span id="focusTotal">0m</span></div>
+                </div>
+            </div>
+
+            <!-- BADGES ROW -->
+            <div class="section-header">
+                <h3>🎖️ My Badges</h3>
+                <span id="badgeCount" class="badge-count">0 earned</span>
+            </div>
+            <div id="badgeRow" class="badge-row"></div>
+
+            <!-- DAILY BADGES -->
+            <div class="section-header" style="margin-top:4px;">
+                <h3>📅 Daily Progress</h3>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="font-size:0.78rem;color:#475569;">🏅=Perfect &nbsp; ✅=100% subjects &nbsp; 🔥=Partial &nbsp; 🗓️=Upcoming</span>
+                </div>
+            </div>
+            <div id="dailyBadgeRow" class="daily-badge-row" style="margin-bottom:24px;"></div>
+
+
+            <!-- ALL-TIME CALENDAR -->
+            <div class="section-header" style="margin-top:4px;">
+                <h3>📆 All-Time Record</h3>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button onclick="changeCalMonth(-1)" class="btn-sm" style="padding:4px 10px;">‹</button>
+                    <span id="calMonthLabel" style="font-weight:700;font-size:0.9rem;color:var(--text);min-width:120px;text-align:center;"></span>
+                    <button onclick="changeCalMonth(1)" class="btn-sm" style="padding:4px 10px;">›</button>
+                </div>
+            </div>
+            <div id="allTimeCalendar" class="all-time-cal" style="margin-bottom:24px;"></div>
+
+            <!-- NEXT EXAM + TIMER -->
+            <div class="two-col">
+                <div class="panel">
+                    <h3 class="panel-title">⏰ Next Exam</h3>
+                    <div class="countdown-big" id="examDays">--</div>
+                    <div class="countdown-sub" id="examLabel">No date set</div>
+                    <input type="date" id="examDateInput" onchange="saveExamDate()" class="date-input" style="margin-top:14px;">
+                </div>
+                <div class="panel">
+                    <h3 class="panel-title">🎯 Focus Timer</h3>
+                    <div class="timer-display" id="timerDisplay">00:00</div>
+                    <div class="timer-set">
+                        <input type="number" id="timerMins" placeholder="mins" min="1" max="180" class="timer-input">
+                        <button onclick="setTimer()" class="btn-sm btn-set">Set</button>
+                    </div>
+                    <div class="timer-controls">
+                        <button onclick="startTimer()" id="startBtn" class="btn-sm btn-start">▶ Start</button>
+                        <button onclick="pauseTimer()" class="btn-sm btn-pause">⏸</button>
+                        <button onclick="resetTimer()" class="btn-sm btn-reset">↺</button>
+                    </div>
+                    <div style="font-size:0.78rem; color:#94a3b8; margin-top:8px;">Sessions today: <b id="sessionCount">0</b></div>
+                </div>
+            </div>
+
+            <!-- TASK TABLE -->
+            <div class="panel" style="margin-top:20px;">
+                <h3 class="panel-title">📋 Tasks & Habits</h3>
+                <div class="input-row">
+                    <input type="text" id="subjectInput" placeholder="Add Subject..." class="task-input">
+                    <button onclick="addSubject()" class="btn-sm btn-subject">+ Subject</button>
+                    <input type="text" id="habitInput" placeholder="Add Habit..." class="task-input">
+                    <button onclick="addHabit()" class="btn-sm btn-habit">+ Habit</button>
+                    <div class="goal-set">
+                        <label>Goal:</label>
+                        <input type="number" id="goalInput" value="2" min="1" onchange="saveGoal()" class="goal-input">
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table id="taskTable">
+                        <thead><tr id="tableHeader"></tr></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- LEADERBOARD TAB -->
+        <div id="tab-leaderboard" class="tab-content">
+            <div class="page-header">
+                <h2 class="page-title">🏆 Global Leaderboard</h2>
+            </div>
+            <div class="lb-tabs">
+                <button class="lb-tab active" onclick="switchLB('hours')">By Study Hours</button>
+                <button class="lb-tab" onclick="switchLB('score')">By Overall Score</button>
+            </div>
+            <div id="globalLBList" class="lb-list"></div>
+        </div>
+
+        <!-- FRIENDS TAB -->
+        <div id="tab-friends" class="tab-content">
+            <div class="page-header">
+                <h2 class="page-title">👥 Friends</h2>
+            </div>
+            <div class="two-col" style="margin-bottom:20px;">
+                <div class="panel">
+                    <h3 class="panel-title">Add Friend</h3>
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="friendInput" placeholder="Enter username..." class="task-input">
+                        <button onclick="addFriend()" class="btn-sm btn-subject">Add</button>
+                    </div>
+                    <p id="friendError" style="color:#f87171; font-size:0.82rem; margin-top:8px;"></p>
+                </div>
+                <div class="panel">
+                    <h3 class="panel-title">Friend Requests</h3>
+                    <div id="friendRequests"></div>
+                </div>
+            </div>
+            <div class="panel">
+                <h3 class="panel-title">🏅 Friends Leaderboard</h3>
+                <div id="friendsLBList" class="lb-list"></div>
+            </div>
+        </div>
+
+        <!-- PROFILE TAB -->
+        <div id="tab-profile" class="tab-content">
+            <div class="page-header">
+                <h2 class="page-title">🎖️ My Profile</h2>
+            </div>
+            <div id="profileContent"></div>
+        </div>
+
+    </main>
+</div>
+
+<!-- URL CHECK POPUP -->
+<div id="urlCheckPopup" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(10px); z-index:3000; align-items:center; justify-content:center;">
+    <div class="url-popup-card">
+        <div class="url-popup-header">
+            <span style="font-size:1.5rem;">👀</span>
+            <div>
+                <h3>You were away for <span id="distractionAwayTime">0 mins</span></h3>
+                <p>Paste the URL you visited so we can check</p>
+            </div>
+        </div>
+        <input type="text" id="urlCheckInput" placeholder="Paste URL here (e.g. https://instagram.com)" class="auth-input" style="margin-bottom:10px;">
+        <button onclick="checkUrl()" class="btn-auth btn-google" style="margin-bottom:14px;">🔍 Check URL</button>
+        <div id="urlCheckResult" class="url-result"></div>
+
+        <!-- SCREENSHOT SECTION (shown on repeat offense) -->
+        <div id="screenshotSection" style="display:none; margin-top:14px;">
+            <p style="color:#f59e0b; font-size:0.85rem; font-weight:700; margin-bottom:8px;">📸 Please upload a screenshot of what you were doing:</p>
+            <input type="file" id="screenshotInput" accept="image/*" class="auth-input" style="padding:8px;">
+            <p id="screenshotResult" class="url-result" style="margin-top:8px;"></p>
+        </div>
+
+        <div class="url-popup-actions" style="margin-top:14px;">
+            <button id="urlPopupDistractBtn" class="btn-auth btn-register" style="display:none;">❌ Yes, distraction</button>
+            <button id="urlPopupAllowBtn" class="btn-auth btn-guest">✅ Not a distraction</button>
+        </div>
+        <p style="font-size:0.72rem;color:#475569;margin-top:12px;text-align:center;">Be honest — honesty costs 0 points. Dishonesty costs 7. 🙏</p>
+    </div>
+</div>
+
+<!-- BADGE AWARD OVERLAY -->
+<div id="badgeOverlay" class="badge-overlay hidden">
+    <div class="badge-modal">
+        <div class="badge-rays"></div>
+        <div class="badge-icon-big" id="badgeIconBig">🏅</div>
+        <h2 class="badge-title" id="badgeTitleText">Achievement Unlocked!</h2>
+        <p class="badge-desc" id="badgeDescText">You earned a new badge!</p>
+        <button onclick="closeBadgeOverlay()" class="btn-auth btn-google" style="margin-top:20px; width:auto; padding:12px 40px;">Awesome! 🎉</button>
+    </div>
+</div>
+
+<!-- PROFILE VIEW MODAL -->
+<div id="profileModal" class="badge-overlay hidden">
+    <div class="profile-modal">
+        <button onclick="closeProfileModal()" class="modal-close">✕</button>
+        <div id="profileModalContent"></div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+
+<!-- ===== ONBOARDING TOUR ===== -->
+<div id="tourOverlay" class="tour-overlay hidden">
+    <!-- SVG overlay with cutout -->
+    <svg id="tourSvgOverlay" style="position:fixed;inset:0;pointer-events:none;z-index:2000;" xmlns="http://www.w3.org/2000/svg">
+        <path id="tourCutout" fill="rgba(0,0,0,0.82)" fill-rule="evenodd" d="M0,0 H10000 V10000 H0 Z"/>
+        <rect class="highlight" fill="none" stroke="#6366f1" stroke-width="2.5" rx="14" x="0" y="0" width="0" height="0">
+            <animate attributeName="stroke-opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite"/>
+        </rect>
+    </svg>
+    <div class="tour-card" id="tourCard">
+        <div class="tour-guide">
+            <div class="guide-avatar">⚡</div>
+            <div class="guide-bubble">
+                <div class="guide-name">Spark · Your Guide</div>
+                <div class="guide-text" id="tourText"></div>
+            </div>
+        </div>
+        <div class="tour-progress">
+            <div class="tour-dots" id="tourDots"></div>
+            <div class="tour-actions">
+                <button onclick="skipTour()" class="btn-tour-skip">Skip</button>
+                <button onclick="prevTourStep()" class="btn-tour-prev" id="tourPrevBtn" style="display:none;">← Back</button>
+                <button onclick="nextTourStep()" class="btn-tour-next" id="tourNextBtn">Next →</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== TOUR BUTTON ===== -->
+<div class="ai-assistant-btn" onclick="startTour()" title="Take the app tour">
+    <span class="ai-btn-icon">⚡</span>
+    <span class="ai-btn-label">Tour</span>
+</div>
+
+</body>
+</html>
